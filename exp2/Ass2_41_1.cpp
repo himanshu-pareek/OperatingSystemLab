@@ -52,7 +52,6 @@ int showMenu () {
 	cout << "Select one option [A/B/C/D/E/F/G] (Default is A) : ";
 	char c;
 	cin >> c;
-	// cout << "Choice = " << c << endl;
 	return (int ) (c - 'A');
 }
 
@@ -230,6 +229,24 @@ void execute_output_to_file () {
 	return;
 }
 
+int execute_pipe (int in, int out, char** argv) {
+	pid_t c;
+	if ((c = fork ()) == 0) {
+		if (in != 0) {
+			dup2 (in, 0);
+			close (in);
+		}
+		if (out != 1) {
+			dup2 (out, 1);
+			close (out);
+		}
+		return execvp (argv[0], argv);
+	}
+	if (c < 0)
+		cout << "Error error error... " << endl;
+	return c;
+}
+
 void execute_pipe_mode () {
 	cout<<"@Group41:";
 	string cmd;
@@ -260,80 +277,85 @@ void execute_pipe_mode () {
 		}
 		strs.push_back (s);
 	}
-	// for (int i = 0; i <= numPipes; i++) {
-	// 	cout << "strs[" << i << "] = --" << strs[i] << "--\n";
-	// }
 	if (numPipes == 0 && strs[0] == "") {
 		return;
 	}
-	int pipes[numPipes][2];
+	// int pipes[numPipes][2];
+	int in = 0;
+	int out = 1;
+	int s_in = dup (0);
+	int s_out = dup (1);
+	int p[2];
 	pid_t child;
 	int status;
-	for (int i = 0; i <= numPipes; i++) {
-		
-		if ((child = fork ()) < 0) {
-			cout << "*** ERROR: Unable to fork child" << endl;
-		} else if (child == 0) {
-			// child process
-			// execute first command
-			// put input of pipe here
-
-			// convert string to char **
-			string strWords[msize];
-			str_to_words(strs[i],strWords);
-			for (int ii = 0; ii < msize; ++ii)
-			{
-				if(strWords[ii]==""){
-					rc=ii;
-					break;
-				}
+	int i;
+	for (i = 0; i < numPipes; i++) {
+		pipe (p);
+		string strWords[msize];
+		str_to_words(strs[i],strWords);
+		for (int ii = 0; ii < msize; ++ii)
+		{
+			if(strWords[ii]==""){
+				rc=ii;
+				break;
 			}
-			char *argv[rc+1];
-			for (int ii = 0; ii < rc; ++ii) {
-				char* name = new char[20];
-				for (int j = 0; j < strWords[ii].length(); j++) {
-					name[j] = strWords[ii][j];
-				}
-				name[strWords[ii].length()] = '\0';
-				argv[ii] = name;
+		}
+		char *argv[rc+1];
+		for (int ii = 0; ii < rc; ++ii) {
+			char* name = new char[20];
+			for (int j = 0; j < strWords[ii].length(); j++) {
+				name[j] = strWords[ii][j];
 			}
-			argv[rc] = '\0';
-			if (strWords[0]=="quit")
-				exit(0);
-				
-			if (i != 0) {
-				dup2 (pipes[i - 1][0], 0);
-			}
-			if (i != numPipes) {
-				dup2 (pipes[i][1], 1);
-			}
-			// close all pipes
-			for (int j = 0; j < numPipes; j++) {
-				close (pipes[j][0]);
-				close (pipes[j][1]);
-			}
-
-		    // execute_pr(argv);
-			execvp (argv[0], argv);
-
-		} else {
-			// parent process
-			// if (i == numPipes) {
-			// 	while (wait (&status) != child)
-			// 	;
-			// }
-			// while (wait(&status) != child)      /* wait for completion  */
-            //     ;
+			name[strWords[ii].length()] = '\0';
+			argv[ii] = name;
+		}
+		argv[rc] = '\0';
+		if (strWords[0]=="quit")
+			exit(0);
+	
+		execute_pipe (in, p[1], argv);
+		close (p[1]);
+		in = p[0];
+	
+	
+	}
+	if (in != 0) {
+		dup2 (in, 0);
+	}
+	
+	string strWords[msize];
+	str_to_words(strs[i],strWords);
+	for (int ii = 0; ii < msize; ++ii)
+	{
+		if(strWords[ii]==""){
+			rc=ii;
+			break;
 		}
 	}
-	// close all pipes
-	for (int j = 0; j < numPipes; j++) {
-		close (pipes[j][0]);
-		close (pipes[j][1]);
+	char *argv[rc+1];
+	for (int ii = 0; ii < rc; ++ii) {
+		char* name = new char[20];
+		for (int j = 0; j < strWords[ii].length(); j++) {
+			name[j] = strWords[ii][j];
+		}
+		name[strWords[ii].length()] = '\0';
+		argv[ii] = name;
 	}
-	for (int i = 0; i <= numPipes; i++) {
-		wait (&status);
+	argv[rc] = '\0';
+	if (strWords[0]=="quit")
+		exit(0);
+		
+	child = fork ();
+	if (child == 0) {
+		execvp (argv[0], argv);
+		cout << endl;
+		exit (0);
+	} else {
+		while (wait (&status) != child);
+		dup2 (s_in, 0);
+		dup2 (s_out, 1);
 	}
+	
 	return;
 }
 
@@ -471,7 +493,6 @@ int main(){
 	while(1){
 
 		int choice = showMenu ();
-		// cout << "Choice = " << choice;
 		switch (choice) {
 			case INTERNAL:
 				execute_internal ();
@@ -493,38 +514,7 @@ int main(){
 				break;
 			case QUIT:
 				exit (1);
-			// default:
-				// execute_internal ();
 		}
-	/*
-		cout<<"@Group41:";
-		string cmd;
-		int rc;
-		getline(cin,cmd);
-		string strWords[msize];
-		str_to_words(cmd,strWords);
-		for (int i = 0; i < msize; ++i)
-		{
-			if(strWords[i]==""){
-				rc=i;
-				break;
-			}
-		}
-		char *argv[rc+1];
-		for (int i = 0; i < rc; ++i) {
-			char* name = new char[20];
-			for (int j = 0; j < strWords[i].length(); j++) {
-				name[j] = strWords[i][j];
-			}
-			name[strWords[i].length()] = '\0';
-			argv[i] = name;
-		}
-		argv[rc] = '\0';
-		if (strWords[0]=="quit")
-			exit(0);
-
-        execute_pr(argv);
-        */
 	}
 	return 0;
 }
