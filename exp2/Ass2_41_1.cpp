@@ -267,9 +267,10 @@ void execute_pipe_mode () {
 		return;
 	}
 	int pipes[numPipes][2];
+	pid_t child;
+	int status;
 	for (int i = 0; i <= numPipes; i++) {
-		pid_t child;
-		int status;
+		
 		if ((child = fork ()) < 0) {
 			cout << "*** ERROR: Unable to fork child" << endl;
 		} else if (child == 0) {
@@ -299,10 +300,7 @@ void execute_pipe_mode () {
 			argv[rc] = '\0';
 			if (strWords[0]=="quit")
 				exit(0);
-
-		    // execute_pr(argv);
-			execvp (argv[0], argv);
-
+				
 			if (i != 0) {
 				dup2 (pipes[i - 1][0], 0);
 			}
@@ -315,11 +313,26 @@ void execute_pipe_mode () {
 				close (pipes[j][1]);
 			}
 
+		    // execute_pr(argv);
+			execvp (argv[0], argv);
+
 		} else {
 			// parent process
-			while (wait(&status) != child)      /* wait for completion  */
-                 ;
+			// if (i == numPipes) {
+			// 	while (wait (&status) != child)
+			// 	;
+			// }
+			// while (wait(&status) != child)      /* wait for completion  */
+            //     ;
 		}
+	}
+	// close all pipes
+	for (int j = 0; j < numPipes; j++) {
+		close (pipes[j][0]);
+		close (pipes[j][1]);
+	}
+	for (int i = 0; i <= numPipes; i++) {
+		wait (&status);
 	}
 	return;
 }
